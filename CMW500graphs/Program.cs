@@ -12,39 +12,59 @@ namespace CMW500graphs
     {
         static void Main(string[] args)
         {
+            try
+            {
+                string temp = args[0];
+            }
+            catch
+            {
+                Console.WriteLine("This program was not meant to be run in standalone mode.");
+                System.Threading.Thread.Sleep(3000);
+                System.Environment.Exit(0);
+            }
+
             string uut = args[0];
             string csvMetCalFileName = args[1];
             int maxFreq = Convert.ToInt32(args[2]);
             bool isFirstTest = Convert.ToBoolean(args[3]);
 
-            string pattern = "M:/UserPrograms/";
+            string pattern = "M:/UserPrograms/CMW500/";
             string replacement = "";
             Regex rgx = new Regex(pattern);
             string csvFileName = rgx.Replace(csvMetCalFileName, replacement);
 
-            DirectoryInfo csvTempFolder = new DirectoryInfo(@"M:\UserPrograms\");
+            DirectoryInfo csvTempFolder = new DirectoryInfo(@"M:\UserPrograms\CMW500\");
             FileInfo csvFullFileName = new FileInfo(csvTempFolder + csvFileName);
 
             string userDesktop = Environment.GetEnvironmentVariable("USERPROFILE") + @"\Desktop\";
-			FileInfo book = new FileInfo(userDesktop + uut + ".xlsx");
+            string bookName = userDesktop + uut + ".xlsx";
+
+            FileInfo book = new FileInfo(bookName);
+            if (IsFileinUse(book))
+            {
+                Console.WriteLine("Close the Workbook!");
+                while (IsFileinUse(book))
+                {
+                    System.Threading.Thread.Sleep(500);
+                }
+            }
             if (book.Exists && isFirstTest)
             {
                 book.Delete();
-                book = new FileInfo(userDesktop + uut + ".xlsx");
+                book = new FileInfo(bookName);
             }
-
             ExcelPackage package = new ExcelPackage(book);
             ExcelWorksheet sheet = package.Workbook.Worksheets.Add(csvFileName);
-
             var csvText = sheet.Cells.LoadFromText(csvFullFileName);
-            sheet.Cells["B1:E1"].Clear(); 
+
+            sheet.Cells["B1:E1"].Clear();
             sheet.Cells["B2"].Clear();
             sheet.Cells[maxFreq + 3, 2].Clear();
             sheet.Cells[maxFreq + 4, 2, maxFreq + 4, 5].Clear();
             sheet.Cells["A1"].Style.Font.Size = 22;
             sheet.Row(1).Merged = true;
 
-            var chart = sheet.Drawings.AddChart("chart1", eChartType.Line);
+            ExcelChart chart = (ExcelLineChart)sheet.Drawings.AddChart("chart1", eChartType.Line);
             for (int col = 1; col <= 6; col++)
             {
                 chart.Series.Add(csvText.Offset(1, col, maxFreq + 2, 1), csvText.Offset(1, 0, maxFreq + 2, 1));
@@ -52,12 +72,18 @@ namespace CMW500graphs
 
             chart.Title.Text = sheet.Cells[maxFreq + 4, 1].Value.ToString();
             chart.SetPosition(42, 350);
-            chart.SetSize(800, 400);
+            chart.SetSize(800, 300);
             chart.DisplayBlanksAs = eDisplayBlanksAs.Gap;
             chart.Legend.Remove();
             RemoveGridlines(chart);
 
-            chart.XAxis.CrossesAt = -1.4;
+            double yMax = Math.Ceiling((double)sheet.Cells["G2"].Value / 0.075) / 10;
+            //double yMax = (double)sheet.Cells["G2"].Value / 0.075;
+
+            //Console.WriteLine(yMax);
+            //Console.ReadLine();
+
+            chart.XAxis.CrossesAt = -yMax;
             chart.XAxis.MajorTickMark = eAxisTickMark.In;
             chart.XAxis.MinorTickMark = eAxisTickMark.None;
             chart.XAxis.MinValue = 0;
@@ -66,13 +92,14 @@ namespace CMW500graphs
             chart.XAxis.Title.Text = "Frequency (MHz)";
             chart.XAxis.Title.Font.Size = 12;
 
-            chart.YAxis.MinValue = -1.4;
-            chart.YAxis.MaxValue = 1.4;
-            chart.YAxis.MajorUnit = 0.2;
+         //   chart.YAxis.MinValue = -yMax;// - 0.01;
+         //   chart.YAxis.MaxValue = yMax + 0.05;
+         //   chart.YAxis.MajorUnit = Math.Ceiling(yMax / 5) * 5;
             chart.YAxis.MinorTickMark = eAxisTickMark.None;
             chart.YAxis.Format = "0.0";
             chart.YAxis.Title.Text = "Error (dB)";
-            chart.YAxis.Title.Font.Size = 11;
+            chart.YAxis.Title.Font.Size = 12;
+            chart.YAxis.CrossBetween = eCrossBetween.MidCat;
 
             var data = (ExcelLineChartSerie)chart.Series[0];
             data.Smooth = true;
@@ -99,8 +126,10 @@ namespace CMW500graphs
             hiLimit24.LineColor = Color.Red;
 
             package.Save();
-            csvFullFileName.Delete();
-        }
+            #if !DEBUG
+                csvFullFileName.Delete();
+            #endif
+            }
 
         static void RemoveGridlines(ExcelChart chart)
         {
@@ -109,20 +138,6 @@ namespace CMW500graphs
             var nsm = new XmlNamespaceManager(chartXml.NameTable);
             nsm.AddNamespace("c", nsuri);
 
-            var catAxisNodes = chartXml.SelectNodes("c:chartSpace/c:chart/c:plotArea/c:catAx", nsm);
-            if (catAxisNodes != null && catAxisNodes.Count > 0)
-            {
-                foreach (XmlNode catAxisNode in catAxisNodes)
-                {
-                    var major = catAxisNode.SelectSingleNode("c:majorGridlines", nsm);
-                    if (major != null)
-                        catAxisNode.RemoveChild(major);
-
-                    var minor = catAxisNode.SelectSingleNode("c:minorGridlines", nsm);
-                    if (minor != null)
-                        catAxisNode.RemoveChild(minor);
-                }
-            }
             var valAxisNodes = chartXml.SelectNodes("c:chartSpace/c:chart/c:plotArea/c:valAx", nsm);
             if (valAxisNodes != null && valAxisNodes.Count > 0)
             {
@@ -137,6 +152,28 @@ namespace CMW500graphs
                         valAxisNode.RemoveChild(minor);
                 }
             }
+        }
+
+        protected static bool IsFileinUse(FileInfo file)
+        {
+            FileStream stream = null;
+
+            if (!file.Exists)
+                return false;
+            try
+            {
+                stream = file.Open(FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException)
+            {
+                return true;
+            }
+            finally
+            {
+                if (stream != null)
+                    stream.Close();
+            }
+            return false;
         }
     }
 }

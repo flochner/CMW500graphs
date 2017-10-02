@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26730.8
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CMW500graphs", "CMW500graphs\CMW500graphs.csproj", "{C2A33A85-5CA2-4417-B331-72CF69E9DD5F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CMW500graphs", "CMW500graphs.csproj", "{C2A33A85-5CA2-4417-B331-72CF69E9DD5F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,6 +20,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {18615605-4541-4D48-908F-78DCFDBE9534}
+		SolutionGuid = {B91912F3-560A-4BBC-865F-C89021177A99}
 	EndGlobalSection
 EndGlobal
